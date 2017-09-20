@@ -24,6 +24,11 @@ def user_response(username)
                                           roles: []))
 end
 
+def task_response(taskname)
+  api_response(200, result: JSON.generate(name: taskname),
+                    source: 'println("Hello, World!");')
+end
+
 RSpec.configure do |config|
   # Disable all http requests
   WebMock.disable_net_connect!(allow: /supermarket.chef.io|files.opscode.com/i)

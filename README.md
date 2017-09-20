@@ -228,33 +228,27 @@ Configures Nexus 3 repositories via API.
 - `attributes` - Hash of attributes passed to the `:create` action, used to
   specify repository attributes for creation or update.
 - `online` - Whether to put the repository online or not (default: true).
-- `api_url` - Nexus 3 API endpoint (default: node['nexus3']['api']['endpoint']).
-- `api_user` - Nexus 3 API user name (default: 'admin').
-- `api_password` - Nexus 3 API password (default: 'admin123').
+- `api_endpoint` - Nexus 3 API endpoint (default: node['nexus3']['api']['endpoint']).
+- `api_username` - Nexus 3 API user name (default: node['nexus3']['api']['username']).
+- `api_password` - Nexus 3 API password (default: node['nexus3']['api']['password']).
 
-## ChefSpec Matchers
+## nexus3_task
 
-The nexus3 cookbook includes custom [ChefSpec](https://github.com/sethvargo/chefspec) matchers you can use to test
-your own cookbooks.
+Configures scheduled tasks via API.
 
-Example Matcher Usage
+### Actions
+- `:create` - Creates or updates a scheduled task.
+- `:delete` - Removes a scheduled task.
 
-```ruby
-expect(chef_run).to install_nexus('nexus').with(
-  data: '/opt/repository/data'
-)
-```
+### Properties
 
-Nexus3 Cookbook Matchers
-
-- install_nexus3(resource_name)
-- uninstall_nexus3(resource_name)
-- run_nexus3_api(resource_name)
-- create_nexus3_api(resource_name)
-- delete_nexus3_api(resource_name)
-- list_nexus3_api(resource_name)
-- create_nexus3_repo(resource_name)
-- delete_nexus3_repo(resource_name)
+- `task_name` - Name of task to act on, defaults to resource name.
+- `task_source` - Source code of the script to run, for now it defaults to
+  running Groovy scripts (typeID: script).
+- `task_crontab` - Actual schedule in the form of a crontab string.
+- `api_endpoint` - Nexus 3 API endpoint (default: node['nexus3']['api']['endpoint']).
+- `api_username` - Nexus 3 API user name (default: node['nexus3']['api']['username']).
+- `api_password` - Nexus 3 API password (default: node['nexus3']['api']['password']).
 
 ## Getting Help
 
