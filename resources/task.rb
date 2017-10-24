@@ -1,27 +1,21 @@
-property :task_name, String, desired_state: false, identity: true, name_attribute: true
-property :task_source, String, desired_state: false, identity: true, default: ''.freeze
-property :task_crontab, String, desired_state: false, identity: true, default: '0 1 * * * ?'.freeze
-property :api_endpoint, String, desired_state: false, identity: true,
-                                default: lazy { node['nexus3']['api']['endpoint'] }
-property :api_username, String, desired_state: false, identity: true,
-                                default: lazy { node['nexus3']['api']['username'] }
-property :api_password, String, desired_state: false, identity: true, sensitive: true,
-                                default: lazy { node['nexus3']['api']['password'] }
+property :task_name, String, name_property: true
+property :task_source, String, default: ''.freeze
+property :task_crontab, String, default: '0 1 * * * ?'.freeze
+property :api_endpoint, String, identity: true, default: lazy { node['nexus3']['api']['endpoint'] }
+property :api_username, String, identity: true, default: lazy { node['nexus3']['api']['username'] }
+property :api_password, String, identity: true, sensitive: true, default: lazy { node['nexus3']['api']['password'] }
 
 load_current_value do |desired|
   api_endpoint desired.api_endpoint
   api_username desired.api_username
   api_password desired.api_password
 
-  def apiclient
-    @apiclient ||= ::Nexus3::Api.new(api_endpoint, api_username, api_password)
-  end
-
   begin
-    res = apiclient.run_script('get_task', desired.task_name)
+    res = ::Nexus3::Api.new(api_endpoint, api_username, api_password).run_script('get_task', desired.task_name)
     current_value_does_not_exist! if res == 'null'
     config = JSON.parse(res)
-    ::Chef::Log.warn "Config is: #{config}"
+    current_value_does_not_exist! if config.nil?
+    ::Chef::Log.debug "Config is: #{config}"
     task_name config['.name']
     task_source config['source']
   # We rescue here because during the first run, the task will not exist yet, so we let Chef know that
@@ -88,8 +82,6 @@ action :delete do
       args new_resource.task_name
 
       content <<-EOS
-import groovy.json.JsonSlurper;
-
 import org.sonatype.nexus.scheduling.TaskConfiguration;
 import org.sonatype.nexus.scheduling.TaskInfo;
 import org.sonatype.nexus.scheduling.TaskScheduler;
@@ -141,9 +133,13 @@ TaskInfo existingTask = taskScheduler.listsTasks().find { TaskInfo taskInfo ->
 }
 
 if (existingTask) {
-return JsonOutput.toJson(existingTask.getConfiguration().asMap());
+    return JsonOutput.toJson(existingTask.getConfiguration().asMap());
 }
       EOS
     end
+  end
+
+  def whyrun_supported?
+    true
   end
 end
