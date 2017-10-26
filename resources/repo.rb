@@ -1,28 +1,19 @@
-property :repo_name, String, desired_state: false, identity: true, name_attribute: true
-property :repo_type, String, desired_state: false, identity: true, default: 'maven2-hosted'
+property :repo_name, String, name_attribute: true
+property :repo_type, String, default: 'maven2-hosted'
 property :attributes, Hash, default: lazy { ::Mash.new } # Not mandatory but strongly recommended in the generic case.
 property :online, [true, false], default: true
-property :api_endpoint, String, desired_state: false, identity: true,
-                                default: lazy { node['nexus3']['api']['endpoint'] }
-property :api_username, String, desired_state: false, identity: true,
-                                default: lazy { node['nexus3']['api']['username'] }
-property :api_password, String, desired_state: false, identity: true, sensitive: true,
+property :api_endpoint, String, desired_state: false, default: lazy { node['nexus3']['api']['endpoint'] }
+property :api_username, String, desired_state: false, default: lazy { node['nexus3']['api']['username'] }
+property :api_password, String, desired_state: false, sensitive: true,
                                 default: lazy { node['nexus3']['api']['password'] }
 
 load_current_value do |desired|
-  api_endpoint desired.api_endpoint
-  api_username desired.api_username
-  api_password desired.api_password
-
-  def apiclient
-    @apiclient ||= ::Nexus3::Api.new(api_endpoint, api_username, api_password)
-  end
-
   begin
-    res = apiclient.run_script('get_repo', desired.repo_name)
+    res = ::Nexus3::Api.new(api_endpoint, api_username, api_password).run_script('get_repo', desired.repo_name)
     current_value_does_not_exist! if res == 'null'
     config = JSON.parse(res)
-    ::Chef::Log.warn "Config is: #{config}"
+    current_value_does_not_exist! if config.nil?
+    ::Chef::Log.debug "Config is: #{config}"
     repo_name config['repositoryName']
     repo_type config['recipeName']
     attributes config['attributes']
@@ -53,7 +44,6 @@ action :create do
 
       content <<-EOS
 import groovy.json.JsonSlurper
-import groovy.json.JsonOutput
 import org.sonatype.nexus.repository.config.Configuration
 
 def params = new JsonSlurper().parseText(args)
@@ -61,26 +51,25 @@ def params = new JsonSlurper().parseText(args)
 def repo = repository.repositoryManager.get(params.name)
 Configuration conf
 if (repo == null) { // create
-  conf = new Configuration(
-    repositoryName: params.name,
-    recipeName: params.type,
-    online: params.online,
-    attributes: params.attributes
-  )
-  repository.createRepository(conf)
+    conf = new Configuration(
+        repositoryName: params.name,
+        recipeName: params.type,
+        online: params.online,
+        attributes: params.attributes
+    )
+    repository.createRepository(conf)
 } else { // update
-  conf = repo.getConfiguration()
-  if (conf.getRecipeName() != params.type) {
-    throw new Exception("Tried to change recipe for repo ${params.name} to ${params.type}")
-  }
-  conf.setOnline(params.online)
-  conf.setAttributes(params.attributes)
-  repo.stop()
-  repo.update(conf)
-  repo.start()
+    conf = repo.getConfiguration()
+    if (conf.getRecipeName() != params.type) {
+        throw new Exception("Tried to change recipe for repo ${params.name} to ${params.type}")
+    }
+    conf.setOnline(params.online)
+    conf.setAttributes(params.attributes)
+    repo.stop()
+    repo.update(conf)
+    repo.start()
 }
-
-  true
+true
     EOS
     end
   end
@@ -125,6 +114,7 @@ action_class do
 
       content <<-EOS
 import groovy.json.JsonOutput
+
 conf = repository.repositoryManager.get(args)?.getConfiguration()
 if (conf != null) {
   JsonOutput.toJson([
